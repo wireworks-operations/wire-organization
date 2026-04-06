@@ -1,15 +1,38 @@
 import { openDB, IDBPDatabase } from 'idb';
-import { WireRoomData } from '../types';
+import { WireRoomData, Reel, Bin, Row } from '../types';
 
 const DB_NAME = 'wire-room-layout-db';
-const STORE_NAME = 'layout-store';
-const VERSION = 1;
+const VERSION = 2;
+
+const STORES = {
+  REELS: 'reels',
+  BINS: 'bins',
+  ROWS: 'rows',
+  CONFIG: 'config',
+  LEGACY: 'layout-store'
+} as const;
 
 export async function getDB(): Promise<IDBPDatabase> {
   return openDB(DB_NAME, VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
+    upgrade(db, oldVersion) {
+      // Create legacy store if it doesn't exist (e.g. fresh install of v2)
+      if (!db.objectStoreNames.contains(STORES.LEGACY)) {
+        db.createObjectStore(STORES.LEGACY);
+      }
+
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains(STORES.REELS)) {
+          db.createObjectStore(STORES.REELS);
+        }
+        if (!db.objectStoreNames.contains(STORES.BINS)) {
+          db.createObjectStore(STORES.BINS);
+        }
+        if (!db.objectStoreNames.contains(STORES.ROWS)) {
+          db.createObjectStore(STORES.ROWS);
+        }
+        if (!db.objectStoreNames.contains(STORES.CONFIG)) {
+          db.createObjectStore(STORES.CONFIG);
+        }
       }
     },
   });
@@ -17,12 +40,95 @@ export async function getDB(): Promise<IDBPDatabase> {
 
 export async function saveLayout(data: WireRoomData): Promise<void> {
   const db = await getDB();
-  await db.put(STORE_NAME, data, 'current-layout');
+  const tx = db.transaction([STORES.REELS, STORES.BINS, STORES.ROWS, STORES.CONFIG], 'readwrite');
+
+  // Clear existing data to maintain sync with the data object
+  await Promise.all([
+    tx.objectStore(STORES.REELS).clear(),
+    tx.objectStore(STORES.BINS).clear(),
+    tx.objectStore(STORES.ROWS).clear(),
+    tx.objectStore(STORES.CONFIG).clear(),
+  ]);
+
+  // Save collections
+  const promises: Promise<any>[] = [];
+
+  Object.values(data.reels).forEach(reel => {
+    promises.push(tx.objectStore(STORES.REELS).put(reel, reel.id));
+  });
+
+  Object.values(data.bins).forEach(bin => {
+    promises.push(tx.objectStore(STORES.BINS).put(bin, bin.id));
+  });
+
+  Object.values(data.rows).forEach(row => {
+    promises.push(tx.objectStore(STORES.ROWS).put(row, row.id));
+  });
+
+  // Save config/metadata
+  const config = {
+    version: data.version,
+    unitsDefault: data.unitsDefault,
+    layout: data.layout,
+    metadata: data.metadata
+  };
+  promises.push(tx.objectStore(STORES.CONFIG).put(config, 'global-config'));
+
+  await Promise.all(promises);
+  await tx.done;
 }
 
 export async function loadLayout(): Promise<WireRoomData | null> {
   const db = await getDB();
-  return db.get(STORE_NAME, 'current-layout');
+
+  // 1. Migration Check
+  const legacyData = await db.get(STORES.LEGACY, 'current-layout');
+  if (legacyData) {
+    console.log('Migrating legacy layout data to structured stores...');
+    await saveLayout(legacyData);
+
+    // Clear legacy data after successful migration
+    const tx = db.transaction(STORES.LEGACY, 'readwrite');
+    await tx.objectStore(STORES.LEGACY).delete('current-layout');
+    await tx.done;
+
+    return legacyData;
+  }
+
+  // 2. Load from new stores
+  const tx = db.transaction([STORES.REELS, STORES.BINS, STORES.ROWS, STORES.CONFIG], 'readonly');
+
+  const [reelsArray, binsArray, rowsArray, config] = await Promise.all([
+    tx.objectStore(STORES.REELS).getAll() as Promise<Reel[]>,
+    tx.objectStore(STORES.BINS).getAll() as Promise<Bin[]>,
+    tx.objectStore(STORES.ROWS).getAll() as Promise<Row[]>,
+    tx.objectStore(STORES.CONFIG).get('global-config')
+  ]);
+
+  // If no config exists, it's a fresh database (or everything was empty)
+  if (!config && reelsArray.length === 0 && binsArray.length === 0 && rowsArray.length === 0) {
+    return null;
+  }
+
+  // Reconstruct the Record structures
+  const reels: Record<string, Reel> = {};
+  reelsArray.forEach(r => reels[r.id] = r);
+
+  const bins: Record<string, Bin> = {};
+  binsArray.forEach(b => bins[b.id] = b);
+
+  const rows: Record<string, Row> = {};
+  rowsArray.forEach(r => rows[r.id] = r);
+
+  return {
+    version: config?.version || INITIAL_DATA.version,
+    unitsDefault: config?.unitsDefault || INITIAL_DATA.unitsDefault,
+    layout: config?.layout || INITIAL_DATA.layout,
+    metadata: config?.metadata || INITIAL_DATA.metadata,
+    reels,
+    bins,
+    rows
+  };
 }
 
 export const INITIAL_DATA: WireRoomData = {
@@ -60,4 +166,3 @@ export const INITIAL_DATA: WireRoomData = {
     lastUpdatedAt: Date.now()
   }
 };
-
