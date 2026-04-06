@@ -41,8 +41,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_BASE_PATH: "/" # Set this to your repository name like /repo-name/ if not using a custom domain
-          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Uncomment if you need to pass secrets to the build
+          VITE_BASE_PATH: "/"
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
