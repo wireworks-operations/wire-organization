@@ -1,0 +1,5 @@
+{
+  "name": "Wire Room Racking & Reel Location Tool",
+  "description": "Visual, interactive inventory layout for racking bins and reel rows with drag-and-drop organization.",
+  "requestFramePermissions": []
+}
