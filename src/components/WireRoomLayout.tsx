@@ -420,7 +420,7 @@ export const WireRoomLayout: React.FC = () => {
         <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 overflow-hidden">
-              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Logo" className="w-full h-full object-cover scale-110" />
+              <img src={`${(import.meta as any).env.BASE_URL}logo.png`} alt="Logo" className="w-full h-full object-cover scale-110" />
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tight text-gray-900 uppercase italic">
