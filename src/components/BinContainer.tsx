@@ -1,5 +1,8 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 import { Bin, Reel } from '../types';
 import { ReelCard } from './ReelCard';
 import { cn } from '../lib/utils';
@@ -14,25 +17,63 @@ interface BinContainerProps {
   selectedIds: Set<string>;
   onToggleSelect: (id: string, shiftKey: boolean) => void;
   onFilterByProperty?: (property: 'wireType' | 'status' | 'reelSize', value: string) => void;
+  isEditBinsMode?: boolean;
 }
 
-export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelContextMenu, onEditReel, onBinContextMenu, selectedIds, onToggleSelect, onFilterByProperty }) => {
-  const { isOver, setNodeRef } = useDroppable({
+export const BinContainer: React.FC<BinContainerProps> = ({
+  bin,
+  reels,
+  onReelContextMenu,
+  onEditReel,
+  onBinContextMenu,
+  selectedIds,
+  onToggleSelect,
+  onFilterByProperty,
+  isEditBinsMode = false
+}) => {
+  const { isOver, setNodeRef: setDroppableRef } = useDroppable({
     id: bin.id,
     data: {
       type: 'bin',
       bin,
     },
+    disabled: isEditBinsMode
   });
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: bin.id,
+    disabled: !isEditBinsMode
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 100 : undefined,
+  };
+
+  const setRefs = (node: HTMLDivElement | null) => {
+    setDroppableRef(node);
+    setSortableRef(node);
+  };
 
   return (
     <div
-      ref={setNodeRef}
-      onContextMenu={(e) => onBinContextMenu(e, bin)}
+      ref={setRefs}
+      style={style}
+      onContextMenu={(e) => !isEditBinsMode && onBinContextMenu(e, bin)}
       className={cn(
         "flex flex-col min-h-[160px] rounded-xl border-2 transition-all duration-300",
-        "bg-white shadow-sm overflow-hidden",
-        isOver ? "border-blue-500 ring-4 ring-blue-500/10 scale-[1.02]" : "border-gray-100"
+        "bg-white shadow-sm overflow-hidden relative",
+        isOver ? "border-blue-500 ring-4 ring-blue-500/10 scale-[1.02]" : "border-gray-100",
+        isEditBinsMode ? "cursor-default" : "",
+        isDragging ? "opacity-50 scale-95 z-50 shadow-2xl ring-4 ring-amber-500/20" : ""
       )}
     >
       <div
@@ -40,6 +81,15 @@ export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelCo
         style={{ backgroundColor: bin.color + '10', borderColor: bin.color + '30' }}
       >
         <h3 className="font-bold text-gray-800 tracking-tight flex items-center gap-2">
+          {isEditBinsMode && (
+            <div
+              {...attributes}
+              {...listeners}
+              className="p-1 hover:bg-gray-100 rounded cursor-grab active:cursor-grabbing text-gray-400"
+            >
+              <GripVertical className="w-4 h-4" />
+            </div>
+          )}
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: bin.color }} />
           {bin.name}
         </h3>
@@ -62,6 +112,7 @@ export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelCo
               isSelected={selectedIds.has(reel.id)}
               onToggleSelect={onToggleSelect}
               onFilterByProperty={onFilterByProperty}
+              disabled={isEditBinsMode}
             />
           ))
         ) : (
@@ -72,6 +123,10 @@ export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelCo
           </div>
         )}
       </div>
+
+      {isEditBinsMode && (
+        <div className="absolute inset-0 bg-amber-500/5 pointer-events-none" />
+      )}
     </div>
   );
 };

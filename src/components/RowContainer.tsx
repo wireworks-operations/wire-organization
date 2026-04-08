@@ -14,25 +14,38 @@ interface RowContainerProps {
   selectedIds: Set<string>;
   onToggleSelect: (id: string, shiftKey: boolean) => void;
   onFilterByProperty?: (property: 'wireType' | 'status' | 'reelSize', value: string) => void;
+  isEditBinsMode?: boolean;
 }
 
-export const RowContainer: React.FC<RowContainerProps> = ({ row, reels, onReelContextMenu, onEditReel, onRowContextMenu, selectedIds, onToggleSelect, onFilterByProperty }) => {
+export const RowContainer: React.FC<RowContainerProps> = ({
+  row,
+  reels,
+  onReelContextMenu,
+  onEditReel,
+  onRowContextMenu,
+  selectedIds,
+  onToggleSelect,
+  onFilterByProperty,
+  isEditBinsMode = false
+}) => {
   const { isOver, setNodeRef } = useDroppable({
     id: row.id,
     data: {
       type: 'row',
       row,
     },
+    disabled: isEditBinsMode
   });
 
   return (
     <div
       ref={setNodeRef}
-      onContextMenu={(e) => onRowContextMenu(e, row)}
+      onContextMenu={(e) => !isEditBinsMode && onRowContextMenu(e, row)}
       className={cn(
         "flex flex-col min-h-[120px] rounded-xl border-2 transition-all duration-300",
         "bg-white shadow-sm overflow-hidden",
-        isOver ? "border-amber-500 ring-4 ring-amber-500/10 scale-[1.01]" : "border-gray-100"
+        isOver ? "border-amber-500 ring-4 ring-amber-500/10 scale-[1.01]" : "border-gray-100",
+        isEditBinsMode ? "opacity-80" : ""
       )}
     >
       <div className="px-4 py-2 flex items-center justify-between border-b bg-gray-50/50">
@@ -56,6 +69,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({ row, reels, onReelCo
               isSelected={selectedIds.has(reel.id)}
               onToggleSelect={onToggleSelect}
               onFilterByProperty={onFilterByProperty}
+              disabled={isEditBinsMode}
             />
           ))
         ) : (

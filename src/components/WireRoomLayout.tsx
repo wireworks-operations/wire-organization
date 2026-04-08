@@ -15,10 +15,10 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, Settings, Trash2, Edit3, Move, Info, CheckCircle2, AlertCircle, Save, XCircle, Undo2, Redo2, Search, Filter, ChevronDown } from 'lucide-react';
+import { Plus, Settings, Trash2, Edit3, Move, Info, CheckCircle2, AlertCircle, Save, XCircle, Undo2, Redo2, Search, Filter, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { Reel, Bin, Row, WireRoomData, Unit, ReelStatus, ReelSize, HistoryState } from '../types';
@@ -30,25 +30,6 @@ import { ContextMenu } from './ContextMenu';
 import { Modal } from './Modal';
 import { cn } from '../lib/utils';
 
-const InputLabel = ({ children }: { children: React.ReactNode }) => (
-  <label className="block text-[11px] font-black text-[#1A237E] uppercase tracking-wider mb-2 ml-1">
-    {children}
-  </label>
-);
-
-const InputField = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input
-    {...props}
-    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 placeholder:font-medium"
-  />
-);
-
-const SelectField = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select
-    {...props}
-    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-  />
-);
 
 export const WireRoomLayout: React.FC = () => {
   const [history, setHistory] = useState<HistoryState>({
@@ -96,6 +77,7 @@ export const WireRoomLayout: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeReel, setActiveReel] = useState<Reel | null>(null);
+  const [activeBin, setActiveBin] = useState<Bin | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'reel' | 'bin' | 'row' | 'batch'; targetId: string } | null>(null);
 
   // Selection
@@ -106,6 +88,9 @@ export const WireRoomLayout: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<ReelStatus | 'all'>('all');
   const [sizeFilter, setSizeFilter] = useState<ReelSize | 'all'>('all');
 
+  // Edit Mode
+  const [isEditBinsMode, setIsEditBinsMode] = useState(false);
+
   // Modals
   const [isReelModalOpen, setIsReelModalOpen] = useState(false);
   const [isBinModalOpen, setIsBinModalOpen] = useState(false);
@@ -115,7 +100,15 @@ export const WireRoomLayout: React.FC = () => {
   const [editingReel, setEditingReel] = useState<Partial<Reel> | null>(null);
   const [editingBin, setEditingBin] = useState<Partial<Bin> | null>(null);
   const [editingRow, setEditingRow] = useState<Partial<Row> | null>(null);
-  const [batchEdit, setBatchEdit] = useState<{ status?: ReelStatus; color?: string }>({});
+  const [batchEdit, setBatchEdit] = useState<{
+    status?: ReelStatus;
+    color?: string;
+    wireType?: string;
+    description?: string;
+    length?: number;
+    unit?: Unit;
+    notes?: string;
+  }>({});
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'reel' | 'bin' | 'row' | 'batch'; id: string } | null>(null);
 
   // Toasts
@@ -169,88 +162,122 @@ export const WireRoomLayout: React.FC = () => {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const reelId = active.id as string;
-    setActiveReel(data.reels[reelId]);
+    const id = active.id as string;
+
+    if (data.reels[id]) {
+      setActiveReel(data.reels[id]);
+    } else if (data.bins[id]) {
+      setActiveBin(data.bins[id]);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveReel(null);
+    setActiveBin(null);
 
     if (!over) return;
 
-    const reelId = active.id as string;
+    const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Find current parent
-    let sourceId = '';
-    let sourceType: 'bin' | 'row' | null = null;
+    // Handle Bin Reordering
+    if (isEditBinsMode && data.bins[activeId] && data.bins[overId]) {
+      if (activeId !== overId) {
+        const binIds = (Object.values(data.bins) as Bin[])
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map(b => b.id);
 
-    for (const binId in data.bins) {
-      if (data.bins[binId].reels.includes(reelId)) {
-        sourceId = binId;
-        sourceType = 'bin';
-        break;
+        const oldIndex = binIds.indexOf(activeId);
+        const newIndex = binIds.indexOf(overId);
+        const newBinIds = arrayMove(binIds, oldIndex, newIndex);
+
+        const newData = { ...data };
+        newBinIds.forEach((id, index) => {
+          newData.bins[id].order = index;
+        });
+
+        newData.metadata.lastUpdatedAt = Date.now();
+        setData(newData);
+        addToast("Bins reorganized");
       }
-    }
-    if (!sourceId) {
-      for (const rowId in data.rows) {
-        if (data.rows[rowId].reels.includes(reelId)) {
-          sourceId = rowId;
-          sourceType = 'row';
-          break;
-        }
-      }
+      return;
     }
 
-    // Determine target
-    let targetId = overId;
-    let targetType: 'bin' | 'row' | null = null;
+    // Handle Reel Movement
+    if (data.reels[activeId]) {
+      const reelId = activeId;
 
-    if (data.bins[overId]) targetType = 'bin';
-    else if (data.rows[overId]) targetType = 'row';
-    else {
-      // If dropped over another reel, find its parent
+      // Find current parent
+      let sourceId = '';
+      let sourceType: 'bin' | 'row' | null = null;
+
       for (const binId in data.bins) {
-        if (data.bins[binId].reels.includes(overId)) {
-          targetId = binId;
-          targetType = 'bin';
+        if (data.bins[binId].reels.includes(reelId)) {
+          sourceId = binId;
+          sourceType = 'bin';
           break;
         }
       }
-      if (!targetType) {
+      if (!sourceId) {
         for (const rowId in data.rows) {
-          if (data.rows[rowId].reels.includes(overId)) {
-            targetId = rowId;
-            targetType = 'row';
+          if (data.rows[rowId].reels.includes(reelId)) {
+            sourceId = rowId;
+            sourceType = 'row';
             break;
           }
         }
       }
+
+      // Determine target
+      let targetId = overId;
+      let targetType: 'bin' | 'row' | null = null;
+
+      if (data.bins[overId]) targetType = 'bin';
+      else if (data.rows[overId]) targetType = 'row';
+      else {
+        // If dropped over another reel, find its parent
+        for (const binId in data.bins) {
+          if (data.bins[binId].reels.includes(overId)) {
+            targetId = binId;
+            targetType = 'bin';
+            break;
+          }
+        }
+        if (!targetType) {
+          for (const rowId in data.rows) {
+            if (data.rows[rowId].reels.includes(overId)) {
+              targetId = rowId;
+              targetType = 'row';
+              break;
+            }
+          }
+        }
+      }
+
+      if (!targetType || (sourceId === targetId)) return;
+
+      // Move reel
+      const newData = { ...data };
+
+      // Remove from source
+      if (sourceType === 'bin') {
+        newData.bins[sourceId].reels = newData.bins[sourceId].reels.filter(id => id !== reelId);
+      } else if (sourceType === 'row') {
+        newData.rows[sourceId].reels = newData.rows[sourceId].reels.filter(id => id !== reelId);
+      }
+
+      // Add to target
+      if (targetType === 'bin') {
+        newData.bins[targetId].reels = [...newData.bins[targetId].reels, reelId];
+      } else if (targetType === 'row') {
+        newData.rows[targetId].reels = [...newData.rows[targetId].reels, reelId];
+      }
+
+      newData.metadata.lastUpdatedAt = Date.now();
+      setData(newData);
+      addToast(`Moved reel to ${targetType === 'bin' ? newData.bins[targetId].name : newData.rows[targetId].name}`);
     }
-
-    if (!targetType || (sourceId === targetId)) return;
-
-    // Move reel
-    const newData = { ...data };
-    
-    // Remove from source
-    if (sourceType === 'bin') {
-      newData.bins[sourceId].reels = newData.bins[sourceId].reels.filter(id => id !== reelId);
-    } else if (sourceType === 'row') {
-      newData.rows[sourceId].reels = newData.rows[sourceId].reels.filter(id => id !== reelId);
-    }
-
-    // Add to target
-    if (targetType === 'bin') {
-      newData.bins[targetId].reels = [...newData.bins[targetId].reels, reelId];
-    } else if (targetType === 'row') {
-      newData.rows[targetId].reels = [...newData.rows[targetId].reels, reelId];
-    }
-
-    newData.metadata.lastUpdatedAt = Date.now();
-    setData(newData);
-    addToast(`Moved reel to ${targetType === 'bin' ? newData.bins[targetId].name : newData.rows[targetId].name}`);
   };
 
   const handleToggleSelect = (id: string, shiftKey: boolean) => {
@@ -282,12 +309,17 @@ export const WireRoomLayout: React.FC = () => {
       });
   }, [data.reels, searchQuery, statusFilter, sizeFilter]);
 
-  const handleBatchOperation = (operation: 'status' | 'color' | 'move', value: any) => {
+  const handleBatchOperation = (operation: 'status' | 'color' | 'move' | 'wireType' | 'description' | 'length' | 'unit' | 'notes', value: any) => {
     const newData = { ...data };
     selectedIds.forEach(id => {
       if (newData.reels[id]) {
         if (operation === 'status') newData.reels[id].status = value;
         if (operation === 'color') newData.reels[id].color = value;
+        if (operation === 'wireType') newData.reels[id].wireType = value;
+        if (operation === 'description') newData.reels[id].description = value;
+        if (operation === 'length') newData.reels[id].length = value;
+        if (operation === 'unit') newData.reels[id].unit = value;
+        if (operation === 'notes') newData.reels[id].notes = value;
       }
     });
 
@@ -296,8 +328,8 @@ export const WireRoomLayout: React.FC = () => {
       const targetType = value.type;
 
       // Remove from all containers
-      Object.values(newData.bins).forEach((b: Bin) => b.reels = b.reels.filter(rid => !selectedIds.has(rid)));
-      Object.values(newData.rows).forEach((r: Row) => r.reels = r.reels.filter(rid => !selectedIds.has(rid)));
+      (Object.values(newData.bins) as Bin[]).forEach((b: Bin) => b.reels = b.reels.filter(rid => !selectedIds.has(rid)));
+      (Object.values(newData.rows) as Row[]).forEach((r: Row) => r.reels = r.reels.filter(rid => !selectedIds.has(rid)));
 
       // Add to target
       if (targetType === 'bin') {
@@ -326,16 +358,19 @@ export const WireRoomLayout: React.FC = () => {
 
   const handleReelContextMenu = (e: React.MouseEvent, reel: Reel) => {
     e.preventDefault();
+    e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, type: 'reel', targetId: reel.id });
   };
 
   const handleBinContextMenu = (e: React.MouseEvent, bin: Bin) => {
     e.preventDefault();
+    e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, type: 'bin', targetId: bin.id });
   };
 
   const handleRowContextMenu = (e: React.MouseEvent, row: Row) => {
     e.preventDefault();
+    e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, type: 'row', targetId: row.id });
   };
 
@@ -390,13 +425,13 @@ export const WireRoomLayout: React.FC = () => {
     if (type === 'reel') {
       delete newData.reels[id];
       // Remove from bins/rows
-      Object.values(newData.bins).forEach((b: Bin) => b.reels = b.reels.filter(rid => rid !== id));
-      Object.values(newData.rows).forEach((r: Row) => r.reels = r.reels.filter(rid => rid !== id));
+      (Object.values(newData.bins) as Bin[]).forEach((b: Bin) => b.reels = b.reels.filter(rid => rid !== id));
+      (Object.values(newData.rows) as Row[]).forEach((r: Row) => r.reels = r.reels.filter(rid => rid !== id));
     } else if (type === 'batch') {
       selectedIds.forEach(rid => {
         delete newData.reels[rid];
-        Object.values(newData.bins).forEach((b: Bin) => b.reels = b.reels.filter(id => id !== rid));
-        Object.values(newData.rows).forEach((r: Row) => r.reels = r.reels.filter(id => id !== rid));
+        (Object.values(newData.bins) as Bin[]).forEach((b: Bin) => b.reels = b.reels.filter(id => id !== rid));
+        (Object.values(newData.rows) as Row[]).forEach((r: Row) => r.reels = r.reels.filter(id => id !== rid));
       });
       setSelectedIds(new Set());
     } else if (type === 'bin') {
@@ -437,6 +472,8 @@ export const WireRoomLayout: React.FC = () => {
       </div>
     );
   }
+
+  const sortedBins = (Object.values(data.bins) as Bin[]).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100">
@@ -490,6 +527,19 @@ export const WireRoomLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setIsEditBinsMode(!isEditBinsMode)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-md active:scale-95 border",
+                isEditBinsMode
+                  ? "bg-amber-500 text-white border-amber-600 shadow-amber-100"
+                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              {isEditBinsMode ? "EXIT EDIT MODE" : "EDIT BIN MODE"}
+            </button>
+            <div className="h-8 w-[1px] bg-gray-200 mx-1" />
+            <button
               onClick={() => { setEditingReel({}); setIsReelModalOpen(true); }}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-md shadow-blue-100 active:scale-95"
             >
@@ -510,7 +560,7 @@ export const WireRoomLayout: React.FC = () => {
               <Plus className="w-4 h-4" />
               ADD ROW
             </button>
-            <div className="h-8 w-[1px] bg-gray-200 mx-2" />
+            <div className="h-8 w-[1px] bg-gray-200 mx-1" />
             <button
               onClick={() => {
                 const newUnit = data.unitsDefault === 'ft' ? 'm' : 'ft';
@@ -634,7 +684,7 @@ export const WireRoomLayout: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 <Info className="w-3 h-3" />
-                Right-click to edit bins or reels
+                {isEditBinsMode ? "Drag bins by the handle to reorder" : "Right-click to edit bins or reels"}
               </div>
             </div>
 
@@ -642,19 +692,26 @@ export const WireRoomLayout: React.FC = () => {
               className="grid gap-6"
               style={{ gridTemplateColumns: `repeat(${data.layout.binGrid.columns}, minmax(0, 1fr))` }}
             >
-              {(Object.values(data.bins) as Bin[]).map(bin => (
-                <BinContainer
-                  key={bin.id}
-                  bin={bin}
-                  reels={filteredReels(bin.reels)}
-                  onReelContextMenu={handleReelContextMenu}
-                  onEditReel={handleEditReel}
-                  onBinContextMenu={handleBinContextMenu}
-                  selectedIds={selectedIds}
-                  onToggleSelect={handleToggleSelect}
-                  onFilterByProperty={handleFilterByProperty}
-                />
-              ))}
+              <SortableContext
+                items={isEditBinsMode ? sortedBins.map(b => b.id) : []}
+                strategy={rectSortingStrategy}
+                disabled={!isEditBinsMode}
+              >
+                {sortedBins.map(bin => (
+                  <BinContainer
+                    key={bin.id}
+                    bin={bin}
+                    reels={filteredReels(bin.reels)}
+                    onReelContextMenu={handleReelContextMenu}
+                    onEditReel={handleEditReel}
+                    onBinContextMenu={handleBinContextMenu}
+                    selectedIds={selectedIds}
+                    onToggleSelect={handleToggleSelect}
+                    onFilterByProperty={handleFilterByProperty}
+                    isEditBinsMode={isEditBinsMode}
+                  />
+                ))}
+              </SortableContext>
             </div>
           </section>
 
@@ -685,6 +742,7 @@ export const WireRoomLayout: React.FC = () => {
                     selectedIds={selectedIds}
                     onToggleSelect={handleToggleSelect}
                     onFilterByProperty={handleFilterByProperty}
+                    isEditBinsMode={isEditBinsMode}
                   />
                 ))}
             </div>
@@ -702,6 +760,18 @@ export const WireRoomLayout: React.FC = () => {
             {activeReel ? (
               <div className="w-[240px] rotate-3 scale-105 shadow-2xl">
                 <ReelCard reel={activeReel} onContextMenu={() => {}} />
+              </div>
+            ) : activeBin ? (
+              <div className="w-[300px] shadow-2xl opacity-90 scale-105">
+                <BinContainer
+                  bin={activeBin}
+                  reels={filteredReels(activeBin.reels)}
+                  onReelContextMenu={() => {}}
+                  onBinContextMenu={() => {}}
+                  selectedIds={new Set()}
+                  onToggleSelect={() => {}}
+                  isEditBinsMode={true}
+                />
               </div>
             ) : null}
           </DragOverlay>
@@ -732,10 +802,10 @@ export const WireRoomLayout: React.FC = () => {
               { label: 'Edit Bin', icon: <Edit3 />, onClick: () => { setEditingBin(data.bins[contextMenu.targetId]); setIsBinModalOpen(true); } },
               { label: 'Clear Bin', icon: <XCircle />, onClick: () => {
                 const newData = { ...data };
-                const bin = newData.bins[contextMenu.targetId];
+                const bin = newData.bins[contextMenu.targetId] as Bin;
                 const firstRowId = Object.keys(data.rows)[0];
                 if (firstRowId) {
-                  newData.rows[firstRowId].reels.push(...bin.reels);
+                  (newData.rows[firstRowId] as Row).reels.push(...bin.reels);
                   bin.reels = [];
                   setData(newData);
                   addToast("Bin cleared, reels moved to floor");
@@ -835,6 +905,15 @@ export const WireRoomLayout: React.FC = () => {
               </span>
             </div>
           </div>
+          <div className="col-span-2">
+            <InputLabel>Notes</InputLabel>
+            <InputField
+              type="text"
+              value={editingReel?.notes || ''}
+              onChange={e => setEditingReel({ ...editingReel, notes: e.target.value })}
+              placeholder="Internal notes or location details..."
+            />
+          </div>
         </div>
       </Modal>
 
@@ -852,8 +931,13 @@ export const WireRoomLayout: React.FC = () => {
             </button>
             <button
               onClick={() => {
-                if (batchEdit.status) handleBatchOperation('status', batchEdit.status);
-                if (batchEdit.color) handleBatchOperation('color', batchEdit.color);
+                if (batchEdit.status !== undefined) handleBatchOperation('status', batchEdit.status);
+                if (batchEdit.color !== undefined) handleBatchOperation('color', batchEdit.color);
+                if (batchEdit.wireType !== undefined) handleBatchOperation('wireType', batchEdit.wireType);
+                if (batchEdit.description !== undefined) handleBatchOperation('description', batchEdit.description);
+                if (batchEdit.length !== undefined) handleBatchOperation('length', batchEdit.length);
+                if (batchEdit.unit !== undefined) handleBatchOperation('unit', batchEdit.unit);
+                if (batchEdit.notes !== undefined) handleBatchOperation('notes', batchEdit.notes);
                 setIsBatchModalOpen(false);
                 setBatchEdit({});
               }}
@@ -864,8 +948,8 @@ export const WireRoomLayout: React.FC = () => {
           </>
         }
       >
-        <div className="flex flex-col gap-6">
-          <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-[24px] flex items-center gap-4">
+        <div className="grid grid-cols-2 gap-6">
+          <div className="col-span-2 p-5 bg-blue-50/50 border border-blue-100 rounded-[24px] flex items-center gap-4">
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
               <Info className="text-blue-600 w-5 h-5" />
             </div>
@@ -874,11 +958,53 @@ export const WireRoomLayout: React.FC = () => {
             </p>
           </div>
           
+          <div className="col-span-2">
+            <InputLabel>Wire Type / ID</InputLabel>
+            <InputField
+              type="text"
+              value={batchEdit.wireType || ''}
+              onChange={e => setBatchEdit({ ...batchEdit, wireType: e.target.value || undefined })}
+              placeholder="No Change"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <InputLabel>Description</InputLabel>
+            <InputField
+              type="text"
+              value={batchEdit.description || ''}
+              onChange={e => setBatchEdit({ ...batchEdit, description: e.target.value || undefined })}
+              placeholder="No Change"
+            />
+          </div>
+
+          <div>
+            <InputLabel>Length</InputLabel>
+            <InputField
+              type="number"
+              value={batchEdit.length ?? ''}
+              onChange={e => setBatchEdit({ ...batchEdit, length: e.target.value === '' ? undefined : Number(e.target.value) })}
+              placeholder="No Change"
+            />
+          </div>
+
+          <div>
+            <InputLabel>Unit</InputLabel>
+            <SelectField
+              value={batchEdit.unit || ''}
+              onChange={e => setBatchEdit({ ...batchEdit, unit: e.target.value || undefined })}
+            >
+              <option value="">No Change</option>
+              <option value="ft">Feet (ft)</option>
+              <option value="m">Meters (m)</option>
+            </SelectField>
+          </div>
+
           <div>
             <InputLabel>Update Status</InputLabel>
             <SelectField
               value={batchEdit.status || ''}
-              onChange={e => setBatchEdit({ ...batchEdit, status: e.target.value as ReelStatus })}
+              onChange={e => setBatchEdit({ ...batchEdit, status: e.target.value || undefined })}
             >
               <option value="">No Change</option>
               <option value="active">Active</option>
@@ -902,7 +1028,17 @@ export const WireRoomLayout: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div className="col-span-2">
+            <InputLabel>Notes</InputLabel>
+            <InputField
+              type="text"
+              value={batchEdit.notes || ''}
+              onChange={e => setBatchEdit({ ...batchEdit, notes: e.target.value || undefined })}
+              placeholder="No Change"
+            />
+          </div>
+
+          <div className="col-span-2">
             <InputLabel>Move to Location</InputLabel>
             <SelectField
               onChange={e => {
@@ -947,7 +1083,8 @@ export const WireRoomLayout: React.FC = () => {
                   name: editingBin?.name || 'New Bin',
                   color: editingBin?.color || '#3B82F6',
                   reels: editingBin?.reels || [],
-                  position: editingBin?.position || { x: 0, y: 0 }
+                  position: editingBin?.position || { x: 0, y: 0 },
+                  order: editingBin?.order ?? Object.keys(data.bins).length
                 } as Bin;
                 setData(newData);
                 setIsBinModalOpen(false);
@@ -1096,3 +1233,23 @@ export const WireRoomLayout: React.FC = () => {
     </div>
   );
 };
+
+const InputLabel = ({ children }: { children: React.ReactNode }) => (
+  <label className="block text-[11px] font-black text-[#1A237E] uppercase tracking-wider mb-2 ml-1">
+    {children}
+  </label>
+);
+
+const InputField = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input
+    {...props}
+    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 placeholder:font-medium"
+  />
+);
+
+const SelectField = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
+  <select
+    {...props}
+    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+  />
+);

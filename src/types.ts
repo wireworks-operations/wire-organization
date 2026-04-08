@@ -22,6 +22,7 @@ export interface Bin {
   color: string;
   reels: string[]; // Array of Reel IDs
   position: { x: number; y: number };
+  order: number;
 }
 
 export interface Row {
