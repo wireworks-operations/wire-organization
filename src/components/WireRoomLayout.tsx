@@ -232,10 +232,14 @@ export const WireRoomLayout: React.FC = () => {
       // Determine target
       let targetId = overId;
       let targetType: 'bin' | 'row' | null = null;
+      let targetReelId: string | null = null;
 
-      if (data.bins[overId]) targetType = 'bin';
-      else if (data.rows[overId]) targetType = 'row';
-      else {
+      if (data.bins[overId]) {
+        targetType = 'bin';
+      } else if (data.rows[overId]) {
+        targetType = 'row';
+      } else if (data.reels[overId]) {
+        targetReelId = overId;
         // If dropped over another reel, find its parent
         for (const binId in data.bins) {
           if (data.bins[binId].reels.includes(overId)) {
@@ -255,23 +259,71 @@ export const WireRoomLayout: React.FC = () => {
         }
       }
 
-      if (!targetType || (sourceId === targetId)) return;
+      if (!targetType) return;
 
-      // Move reel
       const newData = { ...data };
 
+      // Case 1: Reordering within the same container
+      if (sourceId === targetId) {
+        if (activeId !== overId) {
+          const reels = sourceType === 'bin' ? newData.bins[sourceId].reels : newData.rows[sourceId].reels;
+          const oldIndex = reels.indexOf(activeId);
+          const newIndex = reels.indexOf(overId);
+
+          if (sourceType === 'bin') {
+            newData.bins[sourceId] = {
+              ...newData.bins[sourceId],
+              reels: arrayMove(reels, oldIndex, newIndex)
+            };
+          } else {
+            newData.rows[sourceId] = {
+              ...newData.rows[sourceId],
+              reels: arrayMove(reels, oldIndex, newIndex)
+            };
+          }
+
+          newData.metadata.lastUpdatedAt = Date.now();
+          setData(newData);
+          addToast("Reel order updated");
+        }
+        return;
+      }
+
+      // Case 2: Moving between different containers
       // Remove from source
       if (sourceType === 'bin') {
-        newData.bins[sourceId].reels = newData.bins[sourceId].reels.filter(id => id !== reelId);
+        newData.bins[sourceId] = {
+          ...newData.bins[sourceId],
+          reels: newData.bins[sourceId].reels.filter(id => id !== reelId)
+        };
       } else if (sourceType === 'row') {
-        newData.rows[sourceId].reels = newData.rows[sourceId].reels.filter(id => id !== reelId);
+        newData.rows[sourceId] = {
+          ...newData.rows[sourceId],
+          reels: newData.rows[sourceId].reels.filter(id => id !== reelId)
+        };
       }
 
       // Add to target
+      const currentTargetReels = targetType === 'bin' ? newData.bins[targetId].reels : newData.rows[targetId].reels;
+      const nextTargetReels = [...currentTargetReels];
+
+      if (targetReelId) {
+        const targetIndex = nextTargetReels.indexOf(targetReelId);
+        nextTargetReels.splice(targetIndex, 0, reelId);
+      } else {
+        nextTargetReels.push(reelId);
+      }
+
       if (targetType === 'bin') {
-        newData.bins[targetId].reels = [...newData.bins[targetId].reels, reelId];
-      } else if (targetType === 'row') {
-        newData.rows[targetId].reels = [...newData.rows[targetId].reels, reelId];
+        newData.bins[targetId] = {
+          ...newData.bins[targetId],
+          reels: nextTargetReels
+        };
+      } else {
+        newData.rows[targetId] = {
+          ...newData.rows[targetId],
+          reels: nextTargetReels
+        };
       }
 
       newData.metadata.lastUpdatedAt = Date.now();

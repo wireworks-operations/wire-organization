@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { useSortable } from '@dnd-kit/sortable';
+import { useSortable, SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { Bin, Reel } from '../types';
@@ -102,26 +102,28 @@ export const BinContainer: React.FC<BinContainerProps> = ({
         "p-3 gap-2 flex-grow",
         reels.length > 4 ? "grid grid-cols-2" : "flex flex-col"
       )}>
-        {reels.length > 0 ? (
-          reels.map(reel => (
-            <ReelCard
-              key={reel.id}
-              reel={reel}
-              onContextMenu={onReelContextMenu}
-              onEdit={onEditReel}
-              isSelected={selectedIds.has(reel.id)}
-              onToggleSelect={onToggleSelect}
-              onFilterByProperty={onFilterByProperty}
-              disabled={isEditBinsMode}
-            />
-          ))
-        ) : (
-          <div className="flex-grow flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
-            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-              EMPTY BIN
-            </span>
-          </div>
-        )}
+        <SortableContext items={reels.map(r => r.id)} strategy={rectSortingStrategy}>
+          {reels.length > 0 ? (
+            reels.map(reel => (
+              <ReelCard
+                key={reel.id}
+                reel={reel}
+                onContextMenu={onReelContextMenu}
+                onEdit={onEditReel}
+                isSelected={selectedIds.has(reel.id)}
+                onToggleSelect={onToggleSelect}
+                onFilterByProperty={onFilterByProperty}
+                disabled={isEditBinsMode}
+              />
+            ))
+          ) : (
+            <div className="flex-grow flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
+              <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                EMPTY BIN
+              </span>
+            </div>
+          )}
+        </SortableContext>
       </div>
 
       {isEditBinsMode && (

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { Row, Reel } from '../types';
 import { ReelCard } from './ReelCard';
 import { cn } from '../lib/utils';
@@ -59,26 +60,28 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       </div>
 
       <div className="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 flex-grow">
-        {reels.length > 0 ? (
-          reels.map(reel => (
-            <ReelCard
-              key={reel.id}
-              reel={reel}
-              onContextMenu={onReelContextMenu}
-              onEdit={onEditReel}
-              isSelected={selectedIds.has(reel.id)}
-              onToggleSelect={onToggleSelect}
-              onFilterByProperty={onFilterByProperty}
-              disabled={isEditBinsMode}
-            />
-          ))
-        ) : (
-          <div className="col-span-full flex-grow flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg py-4">
-            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-              EMPTY ROW
-            </span>
-          </div>
-        )}
+        <SortableContext items={reels.map(r => r.id)} strategy={rectSortingStrategy}>
+          {reels.length > 0 ? (
+            reels.map(reel => (
+              <ReelCard
+                key={reel.id}
+                reel={reel}
+                onContextMenu={onReelContextMenu}
+                onEdit={onEditReel}
+                isSelected={selectedIds.has(reel.id)}
+                onToggleSelect={onToggleSelect}
+                onFilterByProperty={onFilterByProperty}
+                disabled={isEditBinsMode}
+              />
+            ))
+          ) : (
+            <div className="col-span-full flex-grow flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg py-4">
+              <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                EMPTY ROW
+              </span>
+            </div>
+          )}
+        </SortableContext>
       </div>
     </div>
   );
