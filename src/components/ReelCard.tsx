@@ -14,15 +14,25 @@ interface ReelCardProps {
   isSelected?: boolean;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
   onFilterByProperty?: (property: 'wireType' | 'status' | 'reelSize', value: string) => void;
+  disabled?: boolean;
 }
 
-export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, onEdit, isSelected, onToggleSelect, onFilterByProperty }) => {
+export const ReelCard: React.FC<ReelCardProps> = ({
+  reel,
+  onContextMenu,
+  onEdit,
+  isSelected,
+  onToggleSelect,
+  onFilterByProperty,
+  disabled = false
+}) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: reel.id,
     data: {
       type: 'reel',
       reel,
     },
+    disabled
   });
 
   const style = {
@@ -31,6 +41,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, onEdit,
   };
 
   const handleToggleSelect = (e: React.MouseEvent) => {
+    if (disabled) return;
     if (onToggleSelect) {
       e.stopPropagation();
       onToggleSelect(reel.id, e.shiftKey);
@@ -54,13 +65,13 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, onEdit,
   return (
     <motion.div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      onContextMenu={(e) => onContextMenu(e, reel)}
+      {...(disabled ? {} : listeners)}
+      {...(disabled ? {} : attributes)}
+      onContextMenu={(e) => !disabled && onContextMenu(e, reel)}
       onClick={handleToggleSelect}
       className={cn(
-        "group relative p-3 rounded-lg border-2 shadow-sm cursor-grab active:cursor-grabbing",
-        "transition-all duration-200 hover:shadow-md",
+        "group relative p-3 rounded-lg border-2 shadow-sm",
+        !disabled ? "cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200" : "cursor-default opacity-80",
         isDragging ? "opacity-50 scale-95" : "opacity-100 scale-100",
         isSelected ? "border-blue-500 ring-2 ring-blue-500/20" : ""
       )}
@@ -69,7 +80,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, onEdit,
         backgroundColor: reel.color + '20', // 12% opacity
         borderColor: isSelected ? undefined : reel.color,
       }}
-      whileHover={{ y: -2 }}
+      whileHover={!disabled ? { y: -2 } : undefined}
     >
       {isSelected && (
         <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm z-10">
@@ -78,13 +89,15 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, onEdit,
       )}
 
       {/* Edit Button */}
-      <button
-        onClick={handleEditClick}
-        className="absolute -top-2 -left-2 w-7 h-7 bg-white border-2 border-gray-100 text-gray-400 rounded-full flex items-center justify-center shadow-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity hover:text-blue-600 hover:border-blue-100"
-        title="Edit Reel"
-      >
-        <Edit3 className="w-3.5 h-3.5" />
-      </button>
+      {!disabled && (
+        <button
+          onClick={handleEditClick}
+          className="absolute -top-2 -left-2 w-7 h-7 bg-white border-2 border-gray-100 text-gray-400 rounded-full flex items-center justify-center shadow-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity hover:text-blue-600 hover:border-blue-100"
+          title="Edit Reel"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+        </button>
+      )}
       
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
