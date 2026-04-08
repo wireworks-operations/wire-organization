@@ -30,6 +30,26 @@ import { ContextMenu } from './ContextMenu';
 import { Modal } from './Modal';
 import { cn } from '../lib/utils';
 
+const InputLabel = ({ children }: { children: React.ReactNode }) => (
+  <label className="block text-[11px] font-black text-[#1A237E] uppercase tracking-wider mb-2 ml-1">
+    {children}
+  </label>
+);
+
+const InputField = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input
+    {...props}
+    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 placeholder:font-medium"
+  />
+);
+
+const SelectField = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
+  <select
+    {...props}
+    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+  />
+);
+
 export const WireRoomLayout: React.FC = () => {
   const [history, setHistory] = useState<HistoryState>({
     past: [],
@@ -317,6 +337,11 @@ export const WireRoomLayout: React.FC = () => {
   const handleRowContextMenu = (e: React.MouseEvent, row: Row) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, type: 'row', targetId: row.id });
+  };
+
+  const handleEditReel = (reel: Reel) => {
+    setEditingReel(reel);
+    setIsReelModalOpen(true);
   };
 
   // CRUD Operations
@@ -623,6 +648,7 @@ export const WireRoomLayout: React.FC = () => {
                   bin={bin}
                   reels={filteredReels(bin.reels)}
                   onReelContextMenu={handleReelContextMenu}
+                  onEditReel={handleEditReel}
                   onBinContextMenu={handleBinContextMenu}
                   selectedIds={selectedIds}
                   onToggleSelect={handleToggleSelect}
@@ -654,6 +680,7 @@ export const WireRoomLayout: React.FC = () => {
                     row={row}
                     reels={filteredReels(row.reels)}
                     onReelContextMenu={handleReelContextMenu}
+                    onEditReel={handleEditReel}
                     onRowContextMenu={handleRowContextMenu}
                     selectedIds={selectedIds}
                     onToggleSelect={handleToggleSelect}
@@ -727,78 +754,86 @@ export const WireRoomLayout: React.FC = () => {
       <Modal
         isOpen={isReelModalOpen}
         onClose={() => setIsReelModalOpen(false)}
-        title={editingReel?.id ? "Edit Wire Reel" : "Add New Wire Reel"}
+        title={editingReel?.id ? "Edit Wire Item" : "Add New Wire Item"}
         footer={
           <>
-            <button onClick={() => setIsReelModalOpen(false)} className="px-4 py-2 font-bold text-gray-500 hover:text-gray-700">CANCEL</button>
-            <button onClick={() => saveReel(editingReel || {})} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-100 flex items-center gap-2">
-              <Save className="w-4 h-4" />
-              SAVE REEL
+            <button
+              onClick={() => setIsReelModalOpen(false)}
+              className="px-8 py-4 font-black text-[#1A237E]/40 hover:text-[#1A237E] transition-colors uppercase tracking-widest text-sm italic"
+            >
+              CANCEL
+            </button>
+            <button
+              onClick={() => saveReel(editingReel || {})}
+              className="bg-[#2962FF] text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 flex items-center gap-3 hover:bg-[#1E88E5] transition-all active:scale-95 uppercase tracking-widest text-sm italic"
+            >
+              <Save className="w-5 h-5" />
+              SAVE ITEM
             </button>
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-6">
           <div className="col-span-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Wire Type / ID</label>
-            <input
+            <InputLabel>Wire Type / ID</InputLabel>
+            <InputField
               type="text"
               value={editingReel?.wireType || ''}
               onChange={e => setEditingReel({ ...editingReel, wireType: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               placeholder="e.g. K6A3CU"
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Description</label>
-            <input
+            <InputLabel>Description</InputLabel>
+            <InputField
               type="text"
               value={editingReel?.description || ''}
               onChange={e => setEditingReel({ ...editingReel, description: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               placeholder="e.g. 3C #6 CU RW90"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Length</label>
-            <input
+            <InputLabel>Length</InputLabel>
+            <InputField
               type="number"
               value={editingReel?.length || ''}
               onChange={e => setEditingReel({ ...editingReel, length: Number(e.target.value) })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Unit</label>
-            <select
+            <InputLabel>Unit</InputLabel>
+            <SelectField
               value={editingReel?.unit || data.unitsDefault}
               onChange={e => setEditingReel({ ...editingReel, unit: e.target.value as Unit })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             >
               <option value="ft">Feet (ft)</option>
               <option value="m">Meters (m)</option>
-            </select>
+            </SelectField>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</label>
-            <select
+            <InputLabel>Status</InputLabel>
+            <SelectField
               value={editingReel?.status || 'active'}
               onChange={e => setEditingReel({ ...editingReel, status: e.target.value as ReelStatus })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             >
               <option value="active">Active</option>
               <option value="empty">Empty</option>
               <option value="damaged">Damaged</option>
-            </select>
+            </SelectField>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Color Theme</label>
-            <input
-              type="color"
-              value={editingReel?.color || '#3B82F6'}
-              onChange={e => setEditingReel({ ...editingReel, color: e.target.value })}
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-2 py-2 cursor-pointer"
-            />
+            <InputLabel>Card Color</InputLabel>
+            <div className="flex items-center gap-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-4 py-2">
+              <input
+                type="color"
+                value={editingReel?.color || '#3B82F6'}
+                onChange={e => setEditingReel({ ...editingReel, color: e.target.value })}
+                className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent"
+              />
+              <span className="text-xs font-bold text-gray-400 uppercase font-mono">
+                {editingReel?.color || '#3B82F6'}
+              </span>
+            </div>
           </div>
         </div>
       </Modal>
@@ -809,7 +844,12 @@ export const WireRoomLayout: React.FC = () => {
         title={`Batch Edit (${selectedIds.size} Reels)`}
         footer={
           <>
-            <button onClick={() => setIsBatchModalOpen(false)} className="px-4 py-2 font-bold text-gray-500 hover:text-gray-700">CANCEL</button>
+            <button
+              onClick={() => setIsBatchModalOpen(false)}
+              className="px-8 py-4 font-black text-[#1A237E]/40 hover:text-[#1A237E] transition-colors uppercase tracking-widest text-sm italic"
+            >
+              CANCEL
+            </button>
             <button
               onClick={() => {
                 if (batchEdit.status) handleBatchOperation('status', batchEdit.status);
@@ -817,7 +857,7 @@ export const WireRoomLayout: React.FC = () => {
                 setIsBatchModalOpen(false);
                 setBatchEdit({});
               }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-100"
+              className="bg-[#2962FF] text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 uppercase tracking-widest text-sm italic"
             >
               APPLY CHANGES
             </button>
@@ -825,50 +865,50 @@ export const WireRoomLayout: React.FC = () => {
         }
       >
         <div className="flex flex-col gap-6">
-          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3">
-            <Info className="text-blue-600 w-5 h-5" />
-            <p className="text-xs font-medium text-blue-800">
+          <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-[24px] flex items-center gap-4">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+              <Info className="text-blue-600 w-5 h-5" />
+            </div>
+            <p className="text-xs font-bold text-blue-800 uppercase tracking-wider leading-relaxed">
               Changes will be applied to all {selectedIds.size} selected reels. Leave fields empty to keep current values.
             </p>
           </div>
           
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Update Status</label>
-            <select
+            <InputLabel>Update Status</InputLabel>
+            <SelectField
               value={batchEdit.status || ''}
               onChange={e => setBatchEdit({ ...batchEdit, status: e.target.value as ReelStatus })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             >
               <option value="">No Change</option>
               <option value="active">Active</option>
               <option value="empty">Empty</option>
               <option value="damaged">Damaged</option>
-            </select>
+            </SelectField>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Update Color</label>
-            <div className="flex items-center gap-3">
+            <InputLabel>Update Color</InputLabel>
+            <div className="flex items-center gap-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-4 py-2">
               <input
                 type="color"
                 value={batchEdit.color || '#3B82F6'}
                 onChange={e => setBatchEdit({ ...batchEdit, color: e.target.value })}
-                className="w-12 h-12 bg-gray-50 border border-gray-200 rounded-xl px-2 py-2 cursor-pointer"
+                className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent"
               />
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              <span className="text-xs font-bold text-gray-400 uppercase font-mono">
                 {batchEdit.color || 'No Change'}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Move to Location</label>
-            <select
+            <InputLabel>Move to Location</InputLabel>
+            <SelectField
               onChange={e => {
                 const [type, id] = e.target.value.split(':');
                 if (type && id) handleBatchOperation('move', { type, id });
               }}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             >
               <option value="">Select Target...</option>
               <optgroup label="Racking Bins">
@@ -881,7 +921,7 @@ export const WireRoomLayout: React.FC = () => {
                   <option key={row.id} value={`row:${row.id}`}>{row.name}</option>
                 ))}
               </optgroup>
-            </select>
+            </SelectField>
           </div>
         </div>
       </Modal>
@@ -892,7 +932,12 @@ export const WireRoomLayout: React.FC = () => {
         title={editingBin?.id ? "Edit Racking Bin" : "Add New Racking Bin"}
         footer={
           <>
-            <button onClick={() => setIsBinModalOpen(false)} className="px-4 py-2 font-bold text-gray-500 hover:text-gray-700">CANCEL</button>
+            <button
+              onClick={() => setIsBinModalOpen(false)}
+              className="px-8 py-4 font-black text-[#1A237E]/40 hover:text-[#1A237E] transition-colors uppercase tracking-widest text-sm italic"
+            >
+              CANCEL
+            </button>
             <button
               onClick={() => {
                 const id = editingBin?.id || uuidv4();
@@ -908,32 +953,36 @@ export const WireRoomLayout: React.FC = () => {
                 setIsBinModalOpen(false);
                 addToast("Bin saved");
               }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-100"
+              className="bg-[#2962FF] text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 uppercase tracking-widest text-sm italic"
             >
               SAVE BIN
             </button>
           </>
         }
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bin Name</label>
-            <input
+            <InputLabel>Bin Name</InputLabel>
+            <InputField
               type="text"
               value={editingBin?.name || ''}
               onChange={e => setEditingBin({ ...editingBin, name: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               placeholder="e.g. C4"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bin Color</label>
-            <input
-              type="color"
-              value={editingBin?.color || '#3B82F6'}
-              onChange={e => setEditingBin({ ...editingBin, color: e.target.value })}
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-2 py-2 cursor-pointer"
-            />
+            <InputLabel>Bin Color</InputLabel>
+            <div className="flex items-center gap-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-4 py-2">
+              <input
+                type="color"
+                value={editingBin?.color || '#3B82F6'}
+                onChange={e => setEditingBin({ ...editingBin, color: e.target.value })}
+                className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent"
+              />
+              <span className="text-xs font-bold text-gray-400 uppercase font-mono">
+                {editingBin?.color || '#3B82F6'}
+              </span>
+            </div>
           </div>
         </div>
       </Modal>
@@ -944,7 +993,12 @@ export const WireRoomLayout: React.FC = () => {
         title={editingRow?.id ? "Edit Reel Row" : "Add New Reel Row"}
         footer={
           <>
-            <button onClick={() => setIsRowModalOpen(false)} className="px-4 py-2 font-bold text-gray-500 hover:text-gray-700">CANCEL</button>
+            <button
+              onClick={() => setIsRowModalOpen(false)}
+              className="px-8 py-4 font-black text-[#1A237E]/40 hover:text-[#1A237E] transition-colors uppercase tracking-widest text-sm italic"
+            >
+              CANCEL
+            </button>
             <button
               onClick={() => {
                 const id = editingRow?.id || uuidv4();
@@ -959,7 +1013,7 @@ export const WireRoomLayout: React.FC = () => {
                 setIsRowModalOpen(false);
                 addToast("Row saved");
               }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-100"
+              className="bg-[#2962FF] text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-100 uppercase tracking-widest text-sm italic"
             >
               SAVE ROW
             </button>
@@ -967,12 +1021,11 @@ export const WireRoomLayout: React.FC = () => {
         }
       >
         <div>
-          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Row Name</label>
-          <input
+          <InputLabel>Row Name</InputLabel>
+          <InputField
             type="text"
             value={editingRow?.name || ''}
             onChange={e => setEditingRow({ ...editingRow, name: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             placeholder="e.g. Row 7 – Special Projects"
           />
         </div>
@@ -985,18 +1038,23 @@ export const WireRoomLayout: React.FC = () => {
         variant="danger"
         footer={
           <>
-            <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 font-bold text-gray-500 hover:text-gray-700">CANCEL</button>
-            <button onClick={deleteEntity} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-red-100">
-              REMOVE PERMANENTLY
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-8 py-4 font-black text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest text-sm italic"
+            >
+              CANCEL
+            </button>
+            <button
+              onClick={deleteEntity}
+              className="bg-[#FF1744] text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-red-100 hover:bg-[#D50000] transition-all active:scale-95 uppercase tracking-widest text-sm italic"
+            >
+              REMOVE ITEM
             </button>
           </>
         }
       >
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-            <AlertCircle className="text-red-600 w-8 h-8" />
-          </div>
-          <p className="text-gray-600 font-medium">
+          <p className="text-gray-500 font-bold uppercase tracking-widest text-xs leading-loose">
             Are you sure you want to remove this {deleteTarget?.type}? This action cannot be undone.
             {deleteTarget?.type !== 'reel' && " Any reels inside will be moved to the floor storage."}
           </p>

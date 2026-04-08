@@ -5,17 +5,18 @@ import { cn } from '../lib/utils';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 
-import { Filter } from 'lucide-react';
+import { Filter, Edit3 } from 'lucide-react';
 
 interface ReelCardProps {
   reel: Reel;
   onContextMenu: (e: React.MouseEvent, reel: Reel) => void;
+  onEdit?: (reel: Reel) => void;
   isSelected?: boolean;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
   onFilterByProperty?: (property: 'wireType' | 'status' | 'reelSize', value: string) => void;
 }
 
-export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, isSelected, onToggleSelect, onFilterByProperty }) => {
+export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, onEdit, isSelected, onToggleSelect, onFilterByProperty }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: reel.id,
     data: {
@@ -40,6 +41,13 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, isSelec
     if (onFilterByProperty) {
       e.stopPropagation();
       onFilterByProperty(prop, val);
+    }
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    if (onEdit) {
+      e.stopPropagation();
+      onEdit(reel);
     }
   };
 
@@ -68,6 +76,15 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onContextMenu, isSelec
           <div className="w-2 h-2 bg-white rounded-full" />
         </div>
       )}
+
+      {/* Edit Button */}
+      <button
+        onClick={handleEditClick}
+        className="absolute -top-2 -left-2 w-7 h-7 bg-white border-2 border-gray-100 text-gray-400 rounded-full flex items-center justify-center shadow-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity hover:text-blue-600 hover:border-blue-100"
+        title="Edit Reel"
+      >
+        <Edit3 className="w-3.5 h-3.5" />
+      </button>
       
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
