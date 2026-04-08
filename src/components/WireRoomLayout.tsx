@@ -849,8 +849,9 @@ export const WireRoomLayout: React.FC = () => {
             <InputField
               type="text"
               value={editingReel?.wireType || ''}
-              onChange={e => setEditingReel({ ...editingReel, wireType: e.target.value })}
+              onChange={e => setEditingReel({ ...editingReel, wireType: e.target.value.toUpperCase() })}
               placeholder="e.g. K6A3CU"
+              className="uppercase"
             />
           </div>
           <div className="col-span-2">
@@ -858,8 +859,9 @@ export const WireRoomLayout: React.FC = () => {
             <InputField
               type="text"
               value={editingReel?.description || ''}
-              onChange={e => setEditingReel({ ...editingReel, description: e.target.value })}
+              onChange={e => setEditingReel({ ...editingReel, description: e.target.value.toUpperCase() })}
               placeholder="e.g. 3C #6 CU RW90"
+              className="uppercase"
             />
           </div>
           <div>
@@ -963,8 +965,9 @@ export const WireRoomLayout: React.FC = () => {
             <InputField
               type="text"
               value={batchEdit.wireType || ''}
-              onChange={e => setBatchEdit({ ...batchEdit, wireType: e.target.value || undefined })}
+              onChange={e => setBatchEdit({ ...batchEdit, wireType: e.target.value.toUpperCase() || undefined })}
               placeholder="No Change"
+              className="uppercase"
             />
           </div>
 
@@ -973,8 +976,9 @@ export const WireRoomLayout: React.FC = () => {
             <InputField
               type="text"
               value={batchEdit.description || ''}
-              onChange={e => setBatchEdit({ ...batchEdit, description: e.target.value || undefined })}
+              onChange={e => setBatchEdit({ ...batchEdit, description: e.target.value.toUpperCase() || undefined })}
               placeholder="No Change"
+              className="uppercase"
             />
           </div>
 
@@ -1240,10 +1244,13 @@ const InputLabel = ({ children }: { children: React.ReactNode }) => (
   </label>
 );
 
-const InputField = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+const InputField = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
-    className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 placeholder:font-medium"
+    className={cn(
+      "w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl px-5 py-3.5 font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-gray-300 placeholder:font-medium",
+      className
+    )}
   />
 );
 
