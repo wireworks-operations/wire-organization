@@ -9,13 +9,14 @@ interface RowContainerProps {
   row: Row;
   reels: Reel[];
   onReelContextMenu: (e: React.MouseEvent, reel: Reel) => void;
+  onEditReel?: (reel: Reel) => void;
   onRowContextMenu: (e: React.MouseEvent, row: Row) => void;
   selectedIds: Set<string>;
   onToggleSelect: (id: string, shiftKey: boolean) => void;
   onFilterByProperty?: (property: 'wireType' | 'status' | 'reelSize', value: string) => void;
 }
 
-export const RowContainer: React.FC<RowContainerProps> = ({ row, reels, onReelContextMenu, onRowContextMenu, selectedIds, onToggleSelect, onFilterByProperty }) => {
+export const RowContainer: React.FC<RowContainerProps> = ({ row, reels, onReelContextMenu, onEditReel, onRowContextMenu, selectedIds, onToggleSelect, onFilterByProperty }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: row.id,
     data: {
@@ -51,6 +52,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({ row, reels, onReelCo
               key={reel.id}
               reel={reel}
               onContextMenu={onReelContextMenu}
+              onEdit={onEditReel}
               isSelected={selectedIds.has(reel.id)}
               onToggleSelect={onToggleSelect}
               onFilterByProperty={onFilterByProperty}

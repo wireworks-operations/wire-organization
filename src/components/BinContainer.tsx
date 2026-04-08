@@ -9,13 +9,14 @@ interface BinContainerProps {
   bin: Bin;
   reels: Reel[];
   onReelContextMenu: (e: React.MouseEvent, reel: Reel) => void;
+  onEditReel?: (reel: Reel) => void;
   onBinContextMenu: (e: React.MouseEvent, bin: Bin) => void;
   selectedIds: Set<string>;
   onToggleSelect: (id: string, shiftKey: boolean) => void;
   onFilterByProperty?: (property: 'wireType' | 'status' | 'reelSize', value: string) => void;
 }
 
-export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelContextMenu, onBinContextMenu, selectedIds, onToggleSelect, onFilterByProperty }) => {
+export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelContextMenu, onEditReel, onBinContextMenu, selectedIds, onToggleSelect, onFilterByProperty }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: bin.id,
     data: {
@@ -57,6 +58,7 @@ export const BinContainer: React.FC<BinContainerProps> = ({ bin, reels, onReelCo
               key={reel.id}
               reel={reel}
               onContextMenu={onReelContextMenu}
+              onEdit={onEditReel}
               isSelected={selectedIds.has(reel.id)}
               onToggleSelect={onToggleSelect}
               onFilterByProperty={onFilterByProperty}
